@@ -1,25 +1,21 @@
-#CRUD-операции (Create, Read, Update, Delete) над сущностями базы данных - пользователи, категории, события, бронирования и отзывы
-#функции для взаимодействия с БД через SQLAlchemy
-
-from sqlalchemy.orm import Session  #для работы с сессиями БД.
+from sqlalchemy.orm import Session
 from models import User, Event, Booking, Review, Category
 from schemas import *
-from passlib.context import CryptContext  #для хэширования паролей.
+from passlib.context import CryptContext
 import secrets
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-#---------- USER ----------
-def get_user(db: Session, user_id: int):  #Функция для получения пользователя по ID
+def get_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
-def get_user_by_username(db: Session, username: str):  #Функция для получения пользователя по username
+def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
 
-def get_users(db: Session, skip: int = 0, limit: int = 100):  #Функция для получения списка всех пользователей с пагинацией
+def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(User).offset(skip).limit(limit).all()
 
-def create_user(db: Session, user: UserCreate):  #Функция для создания нового пользователя
+def create_user(db: Session, user: UserCreate):
     hashed = pwd_context.hash(user.password)
     api_key = secrets.token_hex(32)
     role = user.role if user.role in ("admin", "user") else "user"
@@ -29,7 +25,7 @@ def create_user(db: Session, user: UserCreate):  #Функция для созд
     db.refresh(db_user)
     return db_user
 
-def update_user(db: Session, user_id: int, data: UserUpdate):  #Функция для обновления пользователя
+def update_user(db: Session, user_id: int, data: UserUpdate):
     db_user = get_user(db, user_id)
     if not db_user:
         return None
@@ -43,14 +39,13 @@ def update_user(db: Session, user_id: int, data: UserUpdate):  #Функция �
     db.refresh(db_user)
     return db_user
 
-def delete_user(db: Session, user_id: int):  #Функция для удаления пользователя
+def delete_user(db: Session, user_id: int):
     db_user = get_user(db, user_id)
     if db_user:
         db.delete(db_user)
         db.commit()
     return db_user
 
-#---------- CATEGORY ----------
 def create_category(db: Session, cat: CategoryCreate):
     db_cat = Category(**cat.dict())
     db.add(db_cat)
@@ -75,7 +70,6 @@ def delete_category(db: Session, category_id: int):
     db.commit()
     return db_category
 
-#---------- EVENT ----------
 def create_event(db: Session, event: EventCreate, owner_id: int):
     from crud import get_category_by_name
     cat = get_category_by_name(db, event.category_name)
@@ -90,17 +84,16 @@ def create_event(db: Session, event: EventCreate, owner_id: int):
     db.refresh(db_event)
     return db_event
 
-def get_event(db: Session, event_id: int):  #Функция для получения события по ID
+def get_event(db: Session, event_id: int):
     return db.query(Event).filter(Event.id == event_id).first()
 
-def get_events(db: Session, skip: int = 0, limit: int = 100):  #Функция для получения списка событий с пагинацией
+def get_events(db: Session, skip: int = 0, limit: int = 100):
     return db.query(Event).offset(skip).limit(limit).all()
 
 def update_event(db: Session, event_id: int, data: dict):
     db_event = get_event(db, event_id)
     if not db_event:
         return None
-    # Обработка category_name
     if 'category_name' in data:
         from crud import get_category_by_name
         cat = get_category_by_name(db, data['category_name'])
@@ -115,23 +108,20 @@ def update_event(db: Session, event_id: int, data: dict):
     db.refresh(db_event)
     return db_event
 
-def delete_event(db: Session, event_id: int):  #Функция для удаления события
+def delete_event(db: Session, event_id: int):
     db_event = get_event(db, event_id)
     if db_event:
         db.delete(db_event)
         db.commit()
     return db_event
 
-#---------- BOOKING ----------
-def create_booking(db: Session, booking: BookingCreate, user_id: int):  #Функция для создания бронирования
+def create_booking(db: Session, booking: BookingCreate, user_id: int):
     from datetime import datetime
     event = get_event(db, booking.event_id)
     if not event:
         return None
-    # Проверка: событие не должно быть в прошлом
     if event.date <= datetime.utcnow():
         return None
-    # Проверка: достаточно мест
     if event.seats < booking.seats:
         return None
     db_booking = Booking(**booking.dict(), user_id=user_id)
@@ -141,13 +131,13 @@ def create_booking(db: Session, booking: BookingCreate, user_id: int):  #Фун�
     db.refresh(db_booking)
     return db_booking
 
-def get_booking(db: Session, booking_id: int):  #Функция для получения бронирования по ID
+def get_booking(db: Session, booking_id: int):
     return db.query(Booking).filter(Booking.id == booking_id).first()
 
-def get_user_bookings(db: Session, user_id: int):  #Функция для получения бронирований пользователя
+def get_user_bookings(db: Session, user_id: int):
     return db.query(Booking).filter(Booking.user_id == user_id).all()
 
-def update_booking(db: Session, booking_id: int, data: dict, user_id: int, allow_admin: bool = False):  #Функция для обновления бронирования
+def update_booking(db: Session, booking_id: int, data: dict, user_id: int, allow_admin: bool = False):
     db_booking = get_booking(db, booking_id)
     if not db_booking:
         return None
@@ -167,7 +157,7 @@ def update_booking(db: Session, booking_id: int, data: dict, user_id: int, allow
     db.refresh(db_booking)
     return db_booking
 
-def cancel_booking(db: Session, booking_id: int, user_id: int, allow_admin: bool = False):  #Функция для отмены бронирования
+def cancel_booking(db: Session, booking_id: int, user_id: int, allow_admin: bool = False):
     query = db.query(Booking).filter(Booking.id == booking_id)
     if not allow_admin:
         query = query.filter(Booking.user_id == user_id)
@@ -181,33 +171,29 @@ def cancel_booking(db: Session, booking_id: int, user_id: int, allow_admin: bool
     db.commit()
     return booking
 
-#---------- REVIEW ----------
-def create_review(db: Session, review: ReviewCreate, user_id: int):  #Функция для создания отзыва
+def create_review(db: Session, review: ReviewCreate, user_id: int):
     from datetime import datetime
     from models import Booking
     
-    # Проверка: пользователь должен иметь бронирование на это событие
     booking = db.query(Booking).filter(
         Booking.user_id == user_id,
         Booking.event_id == review.event_id
     ).first()
     if not booking:
-        return None  # Нет бронирования
+        return None
     
-    # Проверка: событие должно быть в прошлом
     event = get_event(db, review.event_id)
     if not event:
         return None
     if event.date > datetime.utcnow():
-        return None  # Событие еще не прошло
+        return None
     
-    # Проверка: у пользователя не должно быть уже отзыва на это событие
     existing_review = db.query(Review).filter(
         Review.user_id == user_id,
         Review.event_id == review.event_id
     ).first()
     if existing_review:
-        return None  # Отзыв уже существует
+        return None
     
     db_review = Review(**review.dict(), user_id=user_id, is_edited=0)
     db.add(db_review)
@@ -215,30 +201,27 @@ def create_review(db: Session, review: ReviewCreate, user_id: int):  #Функц
     db.refresh(db_review)
     return db_review
 
-def get_review(db: Session, review_id: int):  #Функция для получения отзыва по ID (для внутренних нужд)
+def get_review(db: Session, review_id: int):
     return db.query(Review).filter(Review.id == review_id).first()
 
-def get_reviews_by_event(db: Session, event_id: int):  #Функция для получения отзывов по событию
+def get_reviews_by_event(db: Session, event_id: int):
     return db.query(Review).filter(Review.event_id == event_id).all()
 
-def update_review(db: Session, review_id: int, data: dict, user_id: int, allow_admin: bool = False):  #Функция для обновления отзыва
+def update_review(db: Session, review_id: int, data: dict, user_id: int, allow_admin: bool = False):
     db_review = get_review(db, review_id)
     if not db_review:
         return None
-    # Админ не может редактировать чужие отзывы, только свои
-    # Обычный пользователь может редактировать только свои отзывы
     if db_review.user_id != user_id:
         return None
     for k, v in data.items():
         if hasattr(db_review, k):
             setattr(db_review, k, v)
-    # Помечаем отзыв как измененный
     db_review.is_edited = 1
     db.commit()
     db.refresh(db_review)
     return db_review
 
-def delete_review(db: Session, review_id: int, user_id: int, allow_admin: bool = False):  #Функция для удаления отзыва
+def delete_review(db: Session, review_id: int, user_id: int, allow_admin: bool = False):
     db_review = get_review(db, review_id)
     if not db_review:
         return None

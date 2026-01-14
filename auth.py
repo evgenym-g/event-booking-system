@@ -1,6 +1,3 @@
-#Аутентификация: верификация паролей, создание и декодирование JWT-токенов, 
-#аутентификация пользователей и получение текущего пользователя на основе токена
-
 import os
 from datetime import datetime, timedelta
 from typing import Optional
@@ -14,40 +11,37 @@ from pathlib import Path
 from crud import get_user_by_username, get_user
 from dependencies import get_db
 
-# Загрузка переменных окружения из .env файла
-# Используем абсолютный путь для надежности
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-SECRET_KEY = os.getenv("SECRET_KEY")  #Секретный ключ для подписи JWT
+SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY не установлен в переменных окружения")
 
-ALGORITHM = os.getenv("ALGORITHM", "HS256")  #Алгоритм подписи JWT
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))  #Время жизни токена в минутах
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  #Инициализация контекста для хэширования паролей с использованием bcrypt
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")  #Инициализация схемы OAuth2 для извлечения токена из запроса
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-# Blacklist для revoked токенов (in-memory; в production - Redis)
 revoked_tokens = set()
 
-def verify_password(plain: str, hashed: str):  #Функция для верификации пароля
+def verify_password(plain: str, hashed: str):
     return pwd_context.verify(plain, hashed)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):  #Функция для создания JWT-токена
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def authenticate_user(db: Session, username: str, password: str):  #Функция для аутентификации пользователя
+def authenticate_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username)
     if not user or not verify_password(password, user.password):
         return False  
     return user
 
-async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):  #Асинхронная функция для получения текущего пользователя по токену
+async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -60,7 +54,6 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
         user_id_str = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
-        # Преобразуем строку в int (токен содержит user.id как строку)
         try:
             user_id = int(user_id_str)
         except (ValueError, TypeError):

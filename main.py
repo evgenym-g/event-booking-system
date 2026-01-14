@@ -1,6 +1,3 @@
-#отвечает за основной FastAPI-приложение - инициализация app, создание таблиц в БД,
-#определение всех эндпоинтов (роутов) и интеграция с моделями, схемами, CRUD и аутентификацией
-
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,12 +28,11 @@ def require_admin(current_user: User = Depends(verify_signature)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return current_user
 
-#==================== АУТЕНТИФИКАЦИЯ ====================
-@app.post("/auth/register", response_model=UserResponse)  #Эндпоинт для регистрации пользователя
-def register(user: UserCreate, db: Session = Depends(get_db)):  #Функция: принимает данные пользователя и сессию БД
+@app.post("/auth/register", response_model=UserResponse)
+def register(user: UserCreate, db: Session = Depends(get_db)):
     if get_user_by_username(db, user.username):
         raise HTTPException(status_code=400, detail="Username already exists")
-    created_user = create_user(db, user)  #Создание и возврат пользователя (теперь включает api_key)
+    created_user = create_user(db, user)
     return created_user
 
 @app.post("/auth/login")
@@ -54,24 +50,23 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
         "user_id": user.id,
     }
 
-@app.post("/auth/logout")  #Эндпоинт для выхода (logout) 
-def logout(token: str = Depends(oauth2_scheme)):  #Функция: извлекает токен из headers
+@app.post("/auth/logout")
+def logout(token: str = Depends(oauth2_scheme)):
     revoked_tokens.add(token)
     return {"message": "Logout successful"}
 
-#==================== ПОЛЬЗОВАТЕЛИ ====================
-@app.get("/users/me", response_model=UserResponse)  #Эндпоинт для получения данных текущего пользователя
-def read_me(current_user: User = Depends(verify_signature)):  #Функция: зависит от верифицированной подписи
+@app.get("/users/me", response_model=UserResponse)
+def read_me(current_user: User = Depends(verify_signature)):
     return current_user
 
-@app.get("/users", response_model=List[UserResponse])  #Эндпоинт для получения списка всех пользователей
+@app.get("/users", response_model=List[UserResponse])
 def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
-              current_user: User = Depends(require_admin)):  #Только админ
+              current_user: User = Depends(require_admin)):
     return get_users(db, skip, limit)
 
-@app.get("/users/{user_id}", response_model=UserResponse)  #Эндпоинт для получения пользователя по ID
+@app.get("/users/{user_id}", response_model=UserResponse)
 def get_user_detail(user_id: int, db: Session = Depends(get_db),
-                   current_user: User = Depends(verify_signature)):  #Сам или админ
+                   current_user: User = Depends(verify_signature)):
     user = get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -79,9 +74,9 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=403, detail="Not authorized")
     return user
 
-@app.patch("/users/{user_id}", response_model=UserResponse)  #Эндпоинт для обновления пользователя
+@app.patch("/users/{user_id}", response_model=UserResponse)
 def update_user_endpoint(user_id: int, data: UserUpdate, db: Session = Depends(get_db),
-                         current_user: User = Depends(verify_signature)):  #Функция: принимает ID, данные, сессию, верифицированного пользователя
+                         current_user: User = Depends(verify_signature)):
     if user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     if data.role and current_user.role != "admin":
@@ -91,9 +86,9 @@ def update_user_endpoint(user_id: int, data: UserUpdate, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="User not found")
     return updated
 
-@app.delete("/users/{user_id}", response_model=UserResponse)  #Эндпоинт для удаления пользователя
+@app.delete("/users/{user_id}", response_model=UserResponse)
 def delete_user_endpoint(user_id: int, db: Session = Depends(get_db),
-                         current_user: User = Depends(verify_signature)):  #Функция: принимает ID, сессию, верифицированного пользователя
+                         current_user: User = Depends(verify_signature)):
     if user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     deleted = delete_user(db, user_id)
@@ -101,25 +96,23 @@ def delete_user_endpoint(user_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="User not found")
     return deleted
 
-#==================== КАТЕГОРИИ ====================
-@app.post("/categories", response_model=CategoryResponse)  #Эндпоинт для создания категории
-def create_category_endpoint(item: CategoryCreate, db: Session = Depends(get_db),  #Функция: принимает данные категории, сессию БД
+@app.post("/categories", response_model=CategoryResponse)
+def create_category_endpoint(item: CategoryCreate, db: Session = Depends(get_db),
                     current_user: User = Depends(require_admin)):
     return create_category(db, item)
 
-@app.get("/categories", response_model=List[CategoryResponse])  #Эндпоинт для получения списка категорий
-def list_categories(db: Session = Depends(get_db)):  #Функция: принимает сессию БД
+@app.get("/categories", response_model=List[CategoryResponse])
+def list_categories(db: Session = Depends(get_db)):
     return get_categories(db)
 
-@app.delete("/categories/{category_id}", response_model=CategoryResponse)  #Эндпоинт для удаления категории
+@app.delete("/categories/{category_id}", response_model=CategoryResponse)
 def delete_category_endpoint(category_id: int, db: Session = Depends(get_db),
-                            current_user: User = Depends(require_admin)):  #Функция: принимает ID, сессию БД, требует админа
+                            current_user: User = Depends(require_admin)):
     deleted = delete_category(db, category_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Category not found")
     return deleted
 
-#==================== СОБЫТИЯ ====================
 @app.post("/events", response_model=EventResponse)
 def create_event_endpoint(item: EventCreate, db: Session = Depends(get_db),
                  current_user: User = Depends(verify_signature)):
@@ -128,12 +121,12 @@ def create_event_endpoint(item: EventCreate, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Category not found")
     return result
 
-@app.get("/events", response_model=List[EventResponse])  #Эндпоинт для получения списка событий
-def list_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):  #Функция: принимает параметры пагинации и сессию БД
+@app.get("/events", response_model=List[EventResponse])
+def list_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return get_events(db, skip, limit)
 
-@app.get("/events/{event_id}", response_model=EventResponse)  #Эндпоинт для получения события по ID
-def get_event_detail(event_id: int, db: Session = Depends(get_db)):  #Функция: принимает ID и сессию БД
+@app.get("/events/{event_id}", response_model=EventResponse)
+def get_event_detail(event_id: int, db: Session = Depends(get_db)):
     item = get_event(db, event_id)
     if not item:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -147,7 +140,6 @@ def update_event_endpoint(event_id: int, data: dict, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Event not found")
     if item.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    # Обработка даты, если она есть
     if "date" in data and isinstance(data["date"], str):
         try:
             from datetime import datetime
@@ -159,8 +151,8 @@ def update_event_endpoint(event_id: int, data: dict, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Event not found or category not found")
     return updated
 
-@app.delete("/events/{event_id}", response_model=EventResponse)  #Эндпоинт для удаления события
-def delete_event_endpoint(event_id: int, db: Session = Depends(get_db),  #Функция: принимает ID, сессию БД
+@app.delete("/events/{event_id}", response_model=EventResponse)
+def delete_event_endpoint(event_id: int, db: Session = Depends(get_db),
                           current_user: User = Depends(verify_signature)):
     item = get_event(db, event_id)
     if not item:
@@ -170,13 +162,11 @@ def delete_event_endpoint(event_id: int, db: Session = Depends(get_db),  #Фун
     deleted = delete_event(db, event_id)
     return deleted
 
-#==================== БРОНИРОВАНИЯ ====================
-@app.post("/bookings", response_model=BookingResponse)  #Эндпоинт для создания бронирования
-def book_event(booking: BookingCreate, db: Session = Depends(get_db),  #Функция: принимает данные бронирования, сессию БД
+@app.post("/bookings", response_model=BookingResponse)
+def book_event(booking: BookingCreate, db: Session = Depends(get_db),
                current_user: User = Depends(verify_signature)):
     created = create_booking(db, booking, user_id=current_user.id)
     if not created:
-        # Проверяем причину отказа
         event = get_event(db, booking.event_id)
         if not event:
             raise HTTPException(status_code=400, detail="Событие не найдено")
@@ -188,15 +178,14 @@ def book_event(booking: BookingCreate, db: Session = Depends(get_db),  #Функ
         raise HTTPException(status_code=400, detail="Невозможно создать бронирование")
     return created
 
-@app.get("/bookings/me", response_model=List[BookingResponse])  #Эндпоинт для получения бронирований пользователя
-def my_bookings(db: Session = Depends(get_db), current_user: User = Depends(verify_signature)):  #Функция: принимает сессию БД и верифицированного пользователя
+@app.get("/bookings/me", response_model=List[BookingResponse])
+def my_bookings(db: Session = Depends(get_db), current_user: User = Depends(verify_signature)):
     bookings = get_user_bookings(db, current_user.id)
-    # Фильтруем бронирования без события (событие было удалено)
     return [b for b in bookings if b.event_id is not None]
 
-@app.get("/bookings/{booking_id}", response_model=BookingResponse)  #Эндпоинт для получения бронирования по ID
+@app.get("/bookings/{booking_id}", response_model=BookingResponse)
 def get_booking_detail(booking_id: int, db: Session = Depends(get_db),
-                       current_user: User = Depends(verify_signature)):  #Функция: принимает ID, сессию, верифицированного пользователя
+                       current_user: User = Depends(verify_signature)):
     booking = get_booking(db, booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -204,17 +193,17 @@ def get_booking_detail(booking_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=403, detail="Not authorized")
     return booking
 
-@app.patch("/bookings/{booking_id}", response_model=BookingResponse)  #Эндпоинт для обновления бронирования
+@app.patch("/bookings/{booking_id}", response_model=BookingResponse)
 def update_booking_endpoint(booking_id: int, data: dict, db: Session = Depends(get_db),
-                            current_user: User = Depends(verify_signature)):  #Функция: принимает ID, данные, сессию, пользователя
+                            current_user: User = Depends(verify_signature)):
     allow_admin = current_user.role == "admin"
     updated = update_booking(db, booking_id, data, current_user.id, allow_admin=allow_admin)
     if not updated:
         raise HTTPException(status_code=404, detail="Booking not found or not authorized")
     return updated
 
-@app.delete("/bookings/{booking_id}", response_model=BookingResponse)  #Эндпоинт для отмены бронирования
-def cancel_booking_endpoint(booking_id: int, db: Session = Depends(get_db),  #Функция: принимает ID, сессию БД
+@app.delete("/bookings/{booking_id}", response_model=BookingResponse)
+def cancel_booking_endpoint(booking_id: int, db: Session = Depends(get_db),
                             current_user: User = Depends(verify_signature)):
     allow_admin = current_user.role == "admin"
     cancelled = cancel_booking(db, booking_id, current_user.id, allow_admin=allow_admin)
@@ -222,9 +211,8 @@ def cancel_booking_endpoint(booking_id: int, db: Session = Depends(get_db),  #Ф
         raise HTTPException(status_code=404, detail="Booking not found")
     return cancelled
 
-#==================== ОТЗЫВЫ ====================
-@app.post("/reviews", response_model=ReviewResponse)  #Эндпоинт для добавления отзыва
-def add_review(review: ReviewCreate, db: Session = Depends(get_db),  #Функция: принимает данные отзыва, сессию БД
+@app.post("/reviews", response_model=ReviewResponse)
+def add_review(review: ReviewCreate, db: Session = Depends(get_db),
                current_user: User = Depends(verify_signature)):
     result = create_review(db, review, user_id=current_user.id)
     if not result:
@@ -233,7 +221,6 @@ def add_review(review: ReviewCreate, db: Session = Depends(get_db),  #Функц
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot create review: you must have a booking for this event, the event must be in the past, and you can only leave one review per event"
         )
-    # Добавляем username и event_title
     return {
         "id": result.id,
         "text": result.text,
@@ -245,10 +232,9 @@ def add_review(review: ReviewCreate, db: Session = Depends(get_db),  #Функц
         "event_title": result.event.title if result.event else None
     }
 
-@app.get("/reviews/event/{event_id}", response_model=List[ReviewResponse])  #Эндпоинт для получения отзывов по событию
-def event_reviews(event_id: int, db: Session = Depends(get_db)):  #Функция: принимает ID события и сессию БД
+@app.get("/reviews/event/{event_id}", response_model=List[ReviewResponse])
+def event_reviews(event_id: int, db: Session = Depends(get_db)):
     reviews = get_reviews_by_event(db, event_id)
-    # Добавляем username и event_title к каждому отзыву
     result = []
     for review in reviews:
         review_dict = {
@@ -264,15 +250,12 @@ def event_reviews(event_id: int, db: Session = Depends(get_db)):  #Функци�
         result.append(review_dict)
     return result
 
-@app.patch("/reviews/{review_id}", response_model=ReviewResponse)  #Эндпоинт для обновления отзыва
+@app.patch("/reviews/{review_id}", response_model=ReviewResponse)
 def update_review_endpoint(review_id: int, data: dict, db: Session = Depends(get_db),
-                           current_user: User = Depends(verify_signature)):  #Функция: принимает ID, данные, сессию, пользователя
-    # Админ не может редактировать чужие отзывы, только свои
-    # Обычный пользователь может редактировать только свои отзывы
+                           current_user: User = Depends(verify_signature)):
     updated = update_review(db, review_id, data, current_user.id, allow_admin=False)
     if not updated:
         raise HTTPException(status_code=404, detail="Review not found or not authorized")
-    # Добавляем username и event_title
     return {
         "id": updated.id,
         "text": updated.text,
@@ -284,16 +267,15 @@ def update_review_endpoint(review_id: int, data: dict, db: Session = Depends(get
         "event_title": updated.event.title if updated.event else None
     }
 
-@app.delete("/reviews/{review_id}", response_model=ReviewResponse)  #Эндпоинт для удаления отзыва
+@app.delete("/reviews/{review_id}", response_model=ReviewResponse)
 def delete_review_endpoint(review_id: int, db: Session = Depends(get_db),
-                           current_user: User = Depends(verify_signature)):  #Функция: принимает ID, сессию, пользователя
+                           current_user: User = Depends(verify_signature)):
     allow_admin = current_user.role == "admin"
     deleted = delete_review(db, review_id, current_user.id, allow_admin=allow_admin)
     if not deleted:
         raise HTTPException(status_code=404, detail="Review not found or not authorized")
     return deleted
 
-#==================== ПОИСК (доп.) ====================
-@app.get("/events/search", response_model=List[EventResponse])  #Эндпоинт для поиска событий
-def search_events(q: str = Query(..., min_length=1), db: Session = Depends(get_db)):  #Функция: принимает запрос поиска и сессию БД
+@app.get("/events/search", response_model=List[EventResponse])
+def search_events(q: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     return db.query(Event).filter(Event.title.contains(q)).all()
