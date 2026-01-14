@@ -8,15 +8,18 @@ from typing import Optional, List
 class UserCreate(BaseModel):  #Схема для создания пользователя (входные данные)
     username: str
     password: str
+    role: Optional[str] = "user"  # По умолчанию пользователь
 
 class UserUpdate(BaseModel):  #Схема для обновления пользователя (частичные данные)
     username: Optional[str] = None
     password: Optional[str] = None
+    role: Optional[str] = None
 
 class UserResponse(BaseModel):  #Схема для ответа с данными пользователя
     id: int
     username: str
     api_key: str  # Новый: возвращаем api_key клиенту (только при регистрации/login если нужно)
+    role: str
 
     class Config:  #Конфигурация схемы
         from_attributes = True  #Разрешение создания из атрибутов ORM-моделей
@@ -35,7 +38,7 @@ class EventCreate(BaseModel):  #Схема для создания событи�
     title: str
     date: datetime
     seats: int
-    category_id: int
+    category_name: str
 
 class EventResponse(BaseModel):  #Схема для ответа с данными события
     id: int
@@ -56,7 +59,7 @@ class BookingResponse(BaseModel):  #Схема для ответа с данны
     id: int
     seats: int
     user_id: int
-    event_id: int
+    event_id: Optional[int] = None  # Может быть None если событие удалено
 
     class Config:  #Конфигурация схемы
         from_attributes = True  #Разрешение создания из атрибутов ORM-моделей
@@ -72,6 +75,9 @@ class ReviewResponse(BaseModel):  #Схема для ответа с данны�
     rating: float
     user_id: int
     event_id: int
+    is_edited: Optional[int] = 0
+    username: Optional[str] = None  # Имя пользователя
+    event_title: Optional[str] = None  # Название события
 
     class Config:  #Конфигурация схемы
         from_attributes = True  #Разрешение создания из атрибутов ORM-моделей

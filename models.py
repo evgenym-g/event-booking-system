@@ -12,6 +12,7 @@ class User(Base):  #Модель пользователя
     username = Column(String, unique=True, index=True)  #Поле username: строка, уникальное, индексировано
     password = Column(String)  #Поле password: строка для хранения хэшированного пароля
     api_key = Column(String, unique=True)  # Новое поле: API-ключ для HMAC
+    role = Column(String, default="user")  # Роль: "admin" или "user"
 
     events = relationship("Event", back_populates="owner")  #Связь: события, принадлежащие пользователю (one-to-many)
     bookings = relationship("Booking", back_populates="user")  #Связь: бронирования пользователя (one-to-many)
@@ -55,6 +56,7 @@ class Review(Base):  #Модель отзыва
     rating = Column(Float)  #Поле rating: вещественное число для рейтинга
     user_id = Column(Integer, ForeignKey("users.id"))  #Поле user_id: внешний ключ на пользователя
     event_id = Column(Integer, ForeignKey("events.id"))  #Поле event_id: внешний ключ на событие
+    is_edited = Column(Integer, default=0)  #Поле is_edited: 0 - не изменен, 1 - изменен
 
     user = relationship("User", back_populates="reviews")  #Связь: пользователь отзыва (many-to-one)
     event = relationship("Event", back_populates="reviews")  #Связь: событие отзыва (many-to-one)

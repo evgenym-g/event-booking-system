@@ -1,6 +1,7 @@
 #Аутентификация: верификация паролей, создание и декодирование JWT-токенов, 
 #аутентификация пользователей и получение текущего пользователя на основе токена
 
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
@@ -8,12 +9,22 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+from pathlib import Path
 from crud import get_user_by_username, get_user
 from dependencies import get_db
 
-SECRET_KEY = "event_booking_system_oH2810f@4130HFpqj23"  #Секретный ключ для подписи JWT
-ALGORITHM = "HS256"  #Алгоритм подписи JWT
-ACCESS_TOKEN_EXPIRE_MINUTES = 30 #Время жизни токена в минутах
+# Загрузка переменных окружения из .env файла
+# Используем абсолютный путь для надежности
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+SECRET_KEY = os.getenv("SECRET_KEY")  #Секретный ключ для подписи JWT
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY не установлен в переменных окружения")
+
+ALGORITHM = os.getenv("ALGORITHM", "HS256")  #Алгоритм подписи JWT
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))  #Время жизни токена в минутах
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  #Инициализация контекста для хэширования паролей с использованием bcrypt
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")  #Инициализация схемы OAuth2 для извлечения токена из запроса
